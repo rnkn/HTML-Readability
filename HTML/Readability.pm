@@ -6,6 +6,7 @@ use HTML::TreeBuilder;
 use Data::Dumper;
 use HTML::Entities;
 use utf8;
+use Mojo::UserAgent;
 
 my $charset = 'utf-8';
 
@@ -571,14 +572,10 @@ sub getTitle {
 
 sub getHTML {
    my $self = shift;
-   use LWP::UserAgent;
-   my $ua = LWP::UserAgent->new;
-   $ua->agent('Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US) AppleWebKit/533.9 (KHTML, like Gecko) Chrome/6.0.400.0 Safari/533.9');
-   $ua->cookie_jar({ file => "/tmp/cookies.txt" });
-   my $response = $ua->get($self->url());
-   if ($response->is_success && (($response->content_type ne 'image/gif') && ($response->content_type ne 'application/pdf'))) {
-      $self->html($response->decoded_content);
-      $charset = $response->content_charset;
+   my $ua = Mojo::UserAgent->new;
+   my $response = $ua->get($self->url())->result;
+   if ($response->is_success) {
+      $self->html($response->body);
    } else {
       print("An error happened: \n");
    }
