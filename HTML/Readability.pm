@@ -4,7 +4,6 @@ use strict;
 use Encode qw(encode decode encode_utf8);
 use HTML::TreeBuilder;
 use Data::Dumper;
-use POSIX qw(floor);
 use HTML::Entities;
 use utf8;
 
@@ -169,7 +168,7 @@ sub grabArticle {
       my @splitVal = split /,/, $innerText;
       $contentScore += scalar(@splitVal);
       @splitVal = undef;
-      my $tVal = floor(length($innerText) / 100);
+      my $tVal = int(length($innerText) / 100);
       $contentScore += ($tVal < 3) ? $tVal : 3;
       $parentNode->attr( $self->{attribNamecs}, ($parentNode->attr($self->{attribNamecs}) + $contentScore)) if (ref $parentNode);
       $grandParentNode->attr( $self->{attribNamecs}, ($grandParentNode->attr($self->{attribNamecs}) + $contentScore / 2)) if (ref $grandParentNode);
@@ -322,8 +321,8 @@ sub cleanConditionally {
             $toRemove = 1;
          } elsif (($li > $p) and ($tag ne "ul") and ($tag ne "ol")) {
             $toRemove = 1;
-         } elsif ($input > floor($p/3) ) {
-            $toRemove = 1; 
+         } elsif ($input > int($p/3) ) {
+            $toRemove = 1;
          } elsif($contentLength < 25 && ($img == 0 || $img > 2) ) {
             $toRemove = 1;
          } elsif($weight < 25 && $linkDensity > 0.2) {
