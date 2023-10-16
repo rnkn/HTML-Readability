@@ -39,10 +39,10 @@ sub new {
    $self->{attribName} = 'docE1';
    $self->{attribNamecs} = 'docE1s';
    $self->{articleContent} = undef;
-   bless($self); 
+   bless($self);
    return $self;
 }
-   
+
 sub url {
    my $self = shift;
    if (@_) { $self->{url} = shift }
@@ -76,9 +76,9 @@ sub prepDocument {
    my $innerHTML = $self->innerHTML($self->{dom_tree}->find_by_tag_name('body'));
    my $len = length($innerHTML);
    $innerHTML =~ s/$self->{replaceBrs}/<\/p><p>/gi;
-   $innerHTML =~ s/$self->{replaceFonts}/<$1span>/gi;   
+   $innerHTML =~ s/$self->{replaceFonts}/<$1span>/gi;
    if ($len != length($innerHTML)) {
-     $self->{dom_tree}->find_by_tag_name('body')->delete_content; 
+     $self->{dom_tree}->find_by_tag_name('body')->delete_content;
      $self->{dom_tree}->find_by_tag_name('body')->push_content (HTML::TreeBuilder->new_from_content($innerHTML)->look_down(qw!_tag body!)->detach_content);
    }
 }
@@ -100,23 +100,23 @@ sub grabArticle {
    my @eles = $self->{dom_tree}->look_down(sub{ 1 });
 
    for (my $nodeIndex = 0; $nodeIndex < scalar(@eles); $nodeIndex++ ) {
-      my $ele = $eles[$nodeIndex];  
+      my $ele = $eles[$nodeIndex];
       next unless($ele);
 
       if ($stripUnlikelyCandidates) {
          my $unlikelyMatchString = $ele->attr('class') . $ele->attr('id');
-         if(($unlikelyMatchString =~ m/$self->{unlikelyCandidates}/ig)  && 
+         if(($unlikelyMatchString =~ m/$self->{unlikelyCandidates}/ig)  &&
                ($unlikelyMatchString !~ m/$self->{okMaybeItsACandidate}/ig) &&  ($ele->tag() ne 'body') ) {
             $ele->delete();
             $nodeIndex--;
             next;
          }
       }
-      
+
       if ($ele->tag() eq 'p' || $ele->tag() eq 'td' || $ele->tag() eq 'pre') {
          push @nodesToScore, $ele;
       }
-      
+
       if ($ele->tag() eq 'div') {
          my $tmpVal = $self->innerHTML($ele);
          if ($tmpVal !~ m/$self->{divToPElements}/i) {
@@ -138,12 +138,12 @@ sub grabArticle {
          }
       }
    }
-   
+
    my @candidates = undef;
    for(my $pt = 0; $pt < scalar(@nodesToScore); $pt++) {
       my $node = $nodesToScore[$pt];
       next unless (ref($node) eq 'HTML::Element');
-      
+
       my $parentNode = $node->parent();
       my $grandParentNode = undef;
       if (ref($parentNode) eq 'HTML::Element') {
@@ -152,17 +152,17 @@ sub grabArticle {
          next;
       }
       my $innerText = $self->getInnerText($nodesToScore[$pt]);
-            
+
       next if(length($innerText) < 25);
-      
+
       if ($parentNode && !$parentNode->attr($self->{attribNamecs})) {
           $self->initializeNode($parentNode);
-          push @candidates, $parentNode; 
+          push @candidates, $parentNode;
       }
-      
+
       if ($grandParentNode && !$grandParentNode->attr($self->{attribNamecs})) {
           $self->initializeNode($grandParentNode);
-          push @candidates, $grandParentNode; 
+          push @candidates, $grandParentNode;
       }
 
       my $contentScore = 1;
@@ -174,26 +174,26 @@ sub grabArticle {
       $parentNode->attr( $self->{attribNamecs}, ($parentNode->attr($self->{attribNamecs}) + $contentScore)) if (ref $parentNode);
       $grandParentNode->attr( $self->{attribNamecs}, ($grandParentNode->attr($self->{attribNamecs}) + $contentScore / 2)) if (ref $grandParentNode);
    }
-   
+
    my $topCandidate = undef;
    for (my $c = 0; $c < scalar(@candidates); $c++) {
       next unless (ref($candidates[$c]) eq 'HTML::Element');
-      $candidates[$c]->attr($self->{attribNamecs}, ($candidates[$c]->attr($self->{attribNamecs}) *  (1 - $self->getLinkDensity($candidates[$c]))));     
+      $candidates[$c]->attr($self->{attribNamecs}, ($candidates[$c]->attr($self->{attribNamecs}) *  (1 - $self->getLinkDensity($candidates[$c]))));
       if(!$topCandidate || $candidates[$c]->attr($self->{attribNamecs}) > $topCandidate->attr($self->{attribNamecs})) {
-         $topCandidate = $candidates[$c]; 
+         $topCandidate = $candidates[$c];
       }
    }
    if (!$topCandidate || $topCandidate->tag eq "body") {
       $topCandidate = HTML::Element->new('div', 'id'=>'docDiv');
       $topCandidate = ($self->{dom_tree}->find('body'));
    }
-   
+
    my $articleContent = HTML::Element->new('div', 'id'=>'docE1');
    my $siblingScoreThreshold = ($topCandidate->attr($self->{attribNamecs} * 0.2 ) > 10) ? ($topCandidate->attr($self->{attribNamecs} * 0.2 )) : 10;
-  
+
    $topCandidate->parent()->objectify_text();
    my @siblingNodes = $topCandidate->parent()->content_list();
-   
+
    for(my $s = 0; $s < scalar(@siblingNodes); $s++) {
       my $siblingNode = $siblingNodes[$s];
       my $append = 0;
@@ -203,7 +203,7 @@ sub grabArticle {
          $newElement->push_content($siblingNode->attr('text'));
          $siblingNode->replace_with($newElement)->delete();
       }
- 
+
       if($topCandidate->same_as($siblingNode)) { # REVISIT
          $append = 1;
       }
@@ -212,13 +212,13 @@ sub grabArticle {
       if (($siblingNode->attr('class') eq $topCandidate->attr('class')) && $topCandidate->attr('class')) {
          $contentBonus += $siblingNode->attr($self->{attribNamecs}) * 0.2;
       }
-      
+
       if($siblingNode->attr($self->{attribNamecs}) + $contentBonus >= $siblingScoreThreshold) {
          $append = 1;
       }
-      
+
       if($siblingNode->tag() eq "p") {
-      
+
          my $linkDensity = $self->getLinkDensity($siblingNode);
          my $nodeContent = $self->getInnerText($siblingNode);
          my $nodeLength  = length($nodeContent);
@@ -248,14 +248,14 @@ sub prepArticle {
    my $self = shift;
    my $articleContent = shift;
    $self->cleanStyles($articleContent);
-   
+
    $self->killBreaks($articleContent);
    $self->clean($articleContent, 'form');
    $self->clean($articleContent, 'object');
    $self->clean($articleContent, 'h1');
    $self->clean($articleContent, 'iframe');
    if(scalar($articleContent->find_by_tag_name('h2')) == 1) {
-            #readability.clean(articleContent, "h2"); 
+            #readability.clean(articleContent, "h2");
    }
    #TODO
    $self->cleanHeaders($articleContent);
@@ -271,9 +271,9 @@ sub prepArticle {
       if($imgCount == 0 && $embedCount == 0 && $objectCount == 0 && !$self->getInnerText($articleParagraphs[$i], 0)) {
          $articleParagraphs[$i]->delete;
       }
-     
+
    }
-   
+
    my $innerHTML = $self->innerHTML($articleContent);
    if ($innerHTML =~ m/<br[^>]*>\s*<p/gi) {
       $innerHTML =~ s/<br[^>]*>\s*<p/<p/gi ;
@@ -290,7 +290,7 @@ sub cleanConditionally {
 
    my @tagsList = reverse ($node->find_by_tag_name($tag));
    my $curTagsLength = scalar(@tagsList);
-     
+
    for (my $i = $curTagsLength - 1; $i >= 0; $i--) {
       my $weight = $self->getClassWeight($tagsList[$i]);
       my $contentScore = ($tagsList[$i]->attr($self->{attribNamecs})) ? $tagsList[$i]->attr($self->{attribNamecs}) : 0;
@@ -311,7 +311,7 @@ sub cleanConditionally {
          my @embeds = $tagsList[$i]->find_by_tag_name("embed");
          for(my $j=0; $j < scalar(@embeds); $j++) {
             if ($embeds[$j]->attr('src') =~ m/$self->{videos}/i) {
-               $embedCount++; 
+               $embedCount++;
             }
          }
          #TODO
@@ -348,7 +348,7 @@ sub getCharCount {
    my @t = split /$tag/ , $inText;
    return (scalar(@t) - 1);
 }
-    
+
 sub cleanHeaders {
    my $self = shift;
    my $node = shift;
@@ -362,7 +362,7 @@ sub cleanHeaders {
       }
    }
 }
-    
+
 sub clean {
    my $self = shift;
    my $node = shift;
@@ -382,7 +382,7 @@ sub clean {
          }
       }
       $eles[$i]->delete();
-   }        
+   }
 }
 
 sub killBreaks {
@@ -401,7 +401,7 @@ sub cleanStyles {
    my @eles = $node->look_down(sub{ 1 });
    foreach my $ele (@eles) {
       $ele->attr('style', undef);
-   }        
+   }
 }
 
 sub cTextToNode {
@@ -426,7 +426,7 @@ sub getLinkDensity {
    return 0 unless $textLength;
    for(my $i=0; $i < scalar(@links); $i++) {
       $linkLength += length($self->getInnerText($links[$i]));
-   }       
+   }
    return ($linkLength / $textLength);
 }
 
@@ -438,14 +438,14 @@ sub initializeNode {
    if ($node->tag eq 'div') {
       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) + 5));
    } elsif ($node->tag eq 'td' || $node->tag eq 'pre' || $node->tag eq 'blockquote') {
-       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) + 3));   
+       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) + 3));
    } elsif ($node->tag eq 'address' || $node->tag eq 'ol' || $node->tag eq 'ul' || $node->tag eq 'dl' || $node->tag eq 'dd' || $node->tag eq 'dt' || $node->tag eq 'form' || $node->tag eq 'li' ) {
-       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) - 3));   
+       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) - 3));
    } elsif ($node->tag eq 'h1' || $node->tag eq 'h2' || $node->tag eq 'h3' || $node->tag eq 'h4' || $node->tag eq 'h5' || $node->tag eq 'h6' || $node->tag eq 'th') {
-       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) - 5));   
-   } 
+       $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) - 5));
+   }
 
-   $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) +  $self->getClassWeight($node)));  
+   $node->attr( $self->{attribNamecs}, ($node->attr($self->{attribNamecs}) +  $self->getClassWeight($node)));
 }
 
 
@@ -458,19 +458,19 @@ sub getClassWeight {
    my $tmpvar = $node->attr('class');
    if ($tmpvar) {
       if($tmpvar =~ m/$self->{negative}/i) {
-         $weight -= 25; 
+         $weight -= 25;
       }
       if($tmpvar =~ m/$self->{positive}/i) {
-         $weight += 25; 
+         $weight += 25;
       }
    }
    my $tmpvar = $node->attr('id');
    if ($tmpvar) {
       if($tmpvar =~ m/$self->{negative}/i) {
-         $weight -= 25; 
+         $weight -= 25;
       }
       if($tmpvar =~ m/$self->{positive}/i) {
-         $weight += 25; 
+         $weight += 25;
       }
    }
    return $weight;
@@ -483,7 +483,7 @@ sub getInnerText {
    my $tmpVal = $node->as_text(skip_dels => 1);
    $tmpVal =~ s/$self->{trim}//g;
    if ($normalizeSpaces) {
-      $tmpVal =~ s/$self->{normalize}/ /g;   
+      $tmpVal =~ s/$self->{normalize}/ /g;
    }
    return $tmpVal;
 }
@@ -498,7 +498,7 @@ sub innerHTML() {
    my $node = shift;
    my $html = shift;
    return undef unless $node;
-   
+
    if ($html) {
       #$node->{_content} = [$self->_fromHTML($html)];
       $node->delete_content;
@@ -509,7 +509,7 @@ sub innerHTML() {
             );
       return;
    }
-   my $old = join '', map { (ref($_) eq 'HTML::Element') ? substr( $_->as_HTML('',''),0,-1 ) : '' } $node->content_list ; 
+   my $old = join '', map { (ref($_) eq 'HTML::Element') ? substr( $_->as_HTML('',''),0,-1 ) : '' } $node->content_list ;
 }
 
 sub _fromHTML {
@@ -554,7 +554,7 @@ sub getArticleTitle {
       } elsif (length($curTitle) > 150 || length($curTitle) < 15 ) {
          my @tmpVal = $self->{dom_tree}->find('h1');
          if (scalar(@tmpVal) == 1) {
-            $curTitle = $tmpVal[0]->as_trimmed_text();   
+            $curTitle = $tmpVal[0]->as_trimmed_text();
          }
       }
       $curTitle =~ s/$self->{trim}//gi;
@@ -598,4 +598,4 @@ sub uri_split {
    return $uri =~ m,(?:([^:/?#]+):)?(?://([^/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?,;
 }
 
-1
+1;
