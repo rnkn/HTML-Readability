@@ -463,7 +463,7 @@ sub getClassWeight {
          $weight += 25;
       }
    }
-   my $tmpvar = $node->attr('id');
+   $tmpvar = $node->attr('id');
    if ($tmpvar) {
       if($tmpvar =~ m/$self->{negative}/i) {
          $weight -= 25;
