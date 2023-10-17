@@ -595,3 +595,19 @@ sub uri_split {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+HTML Readability
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011-2023 Vijay Anand.
+
+Copyright (C) 2023 Paul W. Rankin.
+
+This program is free software, you can redistribute it and/or modify it
+under the terms of the Artistic License version 2.0.
+
+=cut
